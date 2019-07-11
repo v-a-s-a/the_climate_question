@@ -1,0 +1,99 @@
+---
+title: "European Social Survey: EDA"
+output: html_notebook
+---
+
+## Data
+
+```{r}
+library(tidyverse)
+library(essurvey)
+library(labelled)
+set_email('trubetskoy.vasa@gmail.com')
+```
+
+Round 8 contains questions refering to climate. We can extract these.
+
+```{r}
+round_8 <- import_rounds(8)
+
+base_variables <- c('idno', 'cntry')
+
+questions <- var_label(round_8) %>%
+  as_data_frame() %>%
+  gather(key = 'variable_name', value = 'description')
+
+climate_questions <- questions %>%
+  filter(str_detect(description, 'climate'))
+
+climate_responses <- round_8 %>%
+  select(one_of(c(base_variables, climate_questions$variable_name)))
+
+# is this the right thing to do?
+climate_responses <- recode_missings(climate_responses, c("Don't know", "Refusal"))
+
+country_summaries <- climate_responses %>%
+  group_by(cntry) %>%
+  summarise(mean_inctxff = mean(inctxff, na.rm = T))
+```
+
+TODO:
+ - Pull demographic data.
+
+## Mapping
+
+Starting point:
+https://gist.github.com/stared/fbca436c885c430a314a
+
+```{r}
+library(rgdal)
+library(doBy)
+
+eurMap <- readOGR('data/NUTS_RG_01M_2016_3035.shp')
+eurMap <- subset(eurMap, nchar(as.character(NUTS_ID)) == 2)
+
+eurMapDf <- fortify(eurMap, region='NUTS_ID')
+
+# merge map and data
+eurMapDataDf <- merge(eurMapDf, country_summaries, by.x="id", by.y="cntry")
+# sort, so that polygons are drawn correctly
+eurMapDataDf <- eurMapDataDf[order(eurMapDataDf$order),]
+
+# limit data to main Europe
+eurMapDataDf <- subset(eurMapDataDf, long > 2e6 & long < 6e6 & lat > 1e6 & lat < 6e6)
+
+# add text; instead of mean I do middle (not to be to biased towards detailed coastlines)
+middle = function (x) {
+  (max(x) + min(x)) / 2
+}  
+txtVal <- summaryBy(long + lat + mean_inctxff ~ id, data=eurMapDataDf, FUN=middle, keep.names=T)
+
+p <- ggplot(data=eurMapDataDf) +
+  geom_polygon(aes(x=long, y=lat, group=group, fill=mean_inctxff)) +
+  geom_path(aes(x=long, y=lat, group=group), color='black', alpha=.5) +
+  geom_text(aes(x=long, y=lat, label=sprintf("%.1f", mean_inctxff)), data=txtVal, col="gray", cex=3) +
+  scale_fill_gradient2() +
+  theme_void() +
+  coord_equal() + 
+  ggtitle('Increasing taxes on fossil fuels, such as oil, gas and coal.\n  Scale - 1: strongly in favor, 5: strongly against')
+p
+```
+
+## Modeling
+
+### Questions
+
+How does income affect climate views?
+
+How does level of education affect climate views?
+
+How do climate views differ by country?
+
+### Models
+
+Basically fresh off the press: https://betanalpha.github.io/assets/case_studies/ordinal_regression.html
+
+
+
+
+
