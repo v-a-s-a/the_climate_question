@@ -1,14 +1,15 @@
 ---
-title: "European Social Survey: EDA"
+title: "European Social Survey: Exploratory data analysis"
 output: html_notebook
 ---
 
 ## Data
 
-```{r}
+```{r echo=FALSE}
 library(tidyverse)
 library(essurvey)
 library(labelled)
+library(rstan)
 set_email('trubetskoy.vasa@gmail.com')
 ```
 
@@ -19,6 +20,8 @@ round_8 <- import_rounds(8)
 
 base_variables <- c('idno', 'cntry')
 
+interesting_variables <- c('eduyrs')
+
 questions <- var_label(round_8) %>%
   as_data_frame() %>%
   gather(key = 'variable_name', value = 'description')
@@ -26,19 +29,16 @@ questions <- var_label(round_8) %>%
 climate_questions <- questions %>%
   filter(str_detect(description, 'climate'))
 
-climate_responses <- round_8 %>%
-  select(one_of(c(base_variables, climate_questions$variable_name)))
+responses <- round_8 %>%
+  select(one_of(c(base_variables, climate_questions$variable_name, interesting_variables)))
 
 # is this the right thing to do?
-climate_responses <- recode_missings(climate_responses, c("Don't know", "Refusal"))
+responses <- recode_missings(responses, c("Don't know", "Refusal"))
 
-country_summaries <- climate_responses %>%
+country_summaries <- responses %>%
   group_by(cntry) %>%
   summarise(mean_inctxff = mean(inctxff, na.rm = T))
 ```
-
-TODO:
- - Pull demographic data.
 
 ## Mapping
 
@@ -75,9 +75,11 @@ p <- ggplot(data=eurMapDataDf) +
   scale_fill_gradient2() +
   theme_void() +
   coord_equal() + 
-  ggtitle('Increasing taxes on fossil fuels, such as oil, gas and coal.\n  Scale - 1: strongly in favor, 5: strongly against')
+  ggtitle('"Increasing taxes on fossil fuels, such as oil, gas and coal."\n  Scale: 1=strongly in favor, 5=strongly against')
 p
 ```
+
+Weirdly the UK is missing on this map.
 
 ## Modeling
 
@@ -89,9 +91,51 @@ How does level of education affect climate views?
 
 How do climate views differ by country?
 
-### Models
+### Model 01: linear everything
 
-Basically fresh off the press: https://betanalpha.github.io/assets/case_studies/ordinal_regression.html
+How unrealistic! We can take a look anyway:
+
+```{r}
+preprocessed_data <- responses %>%
+  select(c(eduyrs, inctxff)) %>%
+  drop_na() %>%
+  mutate(x = scale(eduyrs) %>% as.vector(), y = scale(inctxff) %>% as.vector())
+
+ggplot(preprocessed_data, aes(x=x, y=y)) +
+  geom_point() +
+  geom_smooth(method='lm',formula=y~x) +
+  theme_bw()
+```
+
+Yikes. Lets fit this thing anyway.
+
+```{r}
+stan_data <- preprocessed_data %>%
+  select(c(x, y)) %>%
+  as.list()
+
+stan_data[['N']] <- length(stan_data[['y']])
+
+edu_inctxf_fit <-stan(file = '../models/linear_education_climate.stan',
+  data = stan_data,
+  iter = 2000,
+  warmup = 200,
+  chains = 2)
+
+```
+
+Look at the trace and parameter estimates.
+
+```{r}
+traceplot(edu_inctxf_fit)
+plot(edu_inctxf_fit)
+```
+
+### Model 02: ordinal response? ordinal predictor?
+
+### Model 03: survey adjustments?
+
+### Model 04: hierarchical effects?
 
 
 
