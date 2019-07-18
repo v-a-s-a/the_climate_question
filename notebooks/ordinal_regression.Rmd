@@ -61,12 +61,16 @@ We don't even have time for this.
 
 We can try parallelizing this based on Rickard McElreath's tutorial: [Multithreading and Map-Reduce in Stan 2.18.0: A Minimal Example](https://github.com/rmcelreath/cmdstan_map_rect_tutorial)
 
+The [`map_rect`](https://mc-stan.org/docs/2_19/stan-users-guide/map-function.html) section in the manual also looks good.
+
 ```{r}
+# Important to run this before compiling the stan model!
 # edit_r_makevars()
 # CXX14FLAGS = -DSTAN_THREADS -pthread
 # CXX14FLAGS += -O3 -march=native -mtune=native
 # CXX14FLAGS += -fPIC
-Sys.setenv(STAN_NUM_THREADS = 4)
+
+Sys.setenv(STAN_NUM_THREADS = 2)
 
 edu_inctxf_fit <-stan(file = '../models/threaded_ordered_logistic.stan',
   data = stan_data,
