@@ -1,0 +1,76 @@
+---
+title: "ESS: Ordinal Regression"
+author: "vasa"
+date: "7/18/2019"
+output: html_document
+---
+
+## Setup
+
+```{r setup, cache=TRUE}
+library(tidyverse)
+library(essurvey)
+library(rstan)
+
+source('../scripts/load_survey_data.R')
+```
+
+## Notes and References
+
+### forums
+
+["Multilevel Ordered Logistic regression in Stan"](https://stats.stackexchange.com/questions/225963/multilevel-ordered-logistic-regression-in-stan)  
+
+["Stan: Multilevel Ordinal Logistic Regression"](https://groups.google.com/forum/#!category-topic/stan-users/general/sgX2Edo8qiQ)  
+
+["Prediction with ordered logistic regression"](https://discourse.mc-stan.org/t/prediction-with-ordered-logistic-regression/5192)
+
+## Model 01: Basic Ordered Logistic
+
+Start with a simple ordered logistic model.
+
+Taken from Section 1.8 of the 2.18 Stan User's Manual: [Ordered Logistic and Probit Regression](https://mc-stan.org/docs/2_18/stan-users-guide/ordered-logistic-section.html).
+
+```{r}
+preprocessed_data <- responses %>%
+  select(c(eduyrs, inctxff)) %>%
+  drop_na() %>%
+  mutate(education = scale(eduyrs) %>% as.vector(), response = as.integer(inctxff) %>% as.vector())
+
+stan_data <- preprocessed_data %>%
+  select(c(education, response)) %>%
+  as.list()
+
+stan_data[['N']] <- length(stan_data[['response']])
+stan_data[['K']] <- length(unique(stan_data[['response']]))
+
+edu_inctxf_fit <-stan(file = '../models/ordered_logistic.stan',
+  data = stan_data,
+  iter = 2000,
+  warmup = 200,
+  chains = 2)
+```
+
+This takes quite a while to file on my computer.
+
+## Model Checking
+
+We don't even have time for this.
+
+## Model 02: Threaded Ordered Logistic
+
+We can try parallelizing this based on Rickard McElreath's tutorial: [Multithreading and Map-Reduce in Stan 2.18.0: A Minimal Example](https://github.com/rmcelreath/cmdstan_map_rect_tutorial)
+
+```{r}
+# edit_r_makevars()
+# CXX14FLAGS = -DSTAN_THREADS -pthread
+# CXX14FLAGS += -O3 -march=native -mtune=native
+# CXX14FLAGS += -fPIC
+Sys.setenv(STAN_NUM_THREADS = 4)
+
+edu_inctxf_fit <-stan(file = '../models/threaded_ordered_logistic.stan',
+  data = stan_data,
+  iter = 2000,
+  warmup = 200,
+  chains = 2)
+```
