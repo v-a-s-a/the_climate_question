@@ -1,0 +1,25 @@
+---
+title: "Ordinal Regression: Continuous Feature"
+output: html_notebook
+---
+
+There are a couple of options for modeling the ordinal outcomes with continuous features. There are a few references on the topic:
+
+Michael Betancourt's case study on oridnal regression.
+Paul Burkner's tutorial on ordinal regression with brms.
+The rstanarm tutorial on ordinal regression with stan_polr.
+
+In general, for modeling 
+
+
+```{r}
+library(tidybayes)
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+

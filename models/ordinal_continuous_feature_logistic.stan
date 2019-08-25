@@ -13,6 +13,14 @@ parameters {
 model {
   beta ~ normal(0, 1);
   for (i in 1:N)
-    response[i] ~ ordered_probit(education[i] * beta, cutpoints);
+    response[i] ~ ordered_logistic(education[i] * beta, cutpoints);
+}
+
+// simulate from the stan model
+generated quantities {
+  vector[N] response_sim;
+  for(i in 1:N) {
+    response_sim[i] = ordered_logistic_rng(education[i] * beta, cutpoints);
+  }
 }
 

@@ -15,9 +15,85 @@ library(rstan)
 source('../scripts/load_survey_data.R')
 ```
 
+## Simulation
+
+Response: univariate ordinal
+Features: univariate continuour with positive effect on ordinal response
+
+We'll simulate a continuous latent variable and then take its quantiles as cut points.
+
+```{r}
+simulation_size <- 1000
+response_levels <- 5
+true_beta <- 2 # mean effect of X on Y
+
+
+X <- rnorm(simulation_size, 0, 1)
+latent_Y <- rnorm(simulation_size, X * true_beta, 1)
+
+# discretize using quantiles of lantent variable
+true_cutpoints <- quantile(latent_Y, probs = seq(from = 0, to = 1, length.out = response_levels))
+
+Y <- cut(latent_Y,
+         breaks = true_cutpoints,
+         ordered_result = TRUE,
+         include.lowest = TRUE)
+
+simulation_data <- list('response' = as.integer(Y), 'education' = X)
+
+ggplot(as_tibble(simulation_data), aes(x = X, y = as.integer(Y))) +
+  geom_point() +
+  geom_abline(slope = true_beta, intercept = 4) + # the middle choice must be X = 0
+  theme_bw()
+
+simulation_data[['N']] <- length(simulation_data[['response']])
+simulation_data[['K']] <- length(unique(simulation_data[['response']]))
+
+simulation_fit <- stan(file = '../models/ordered_logistic.stan',
+  data = simulation_data,
+  iter = 2000,
+  chains = 1)
+```
+
+Take a look if we recover our simulated effect.
+
+```{r}
+param_samples <- extract(simulation_fit)
+
+cutpoints_samples <- as_tibble(param_samples[['cutpoints']]) %>%
+  rename_all(function(label) str_replace(label, 'V', 'cutpoint_')) %>%
+  gather(key = cutpoint, value = sample)
+
+true_cutpoints_data <- as_tibble(true_cutpoints)
+
+ggplot(cutpoints_samples, aes(y = sample, group = cutpoint)) +
+  geom_boxplot() + 
+  ggtitle('cutpoints') +
+  geom_hline(data = true_cutpoints_data, aes(yintercept =  value)) +
+  theme_bw()
+
+beta_samples <-  as_tibble(param_samples[['beta']]) %>% rename(beta = value)
+
+true_beta_data <- as_tibble(true_beta)
+
+ggplot(beta_samples, aes(y = beta)) +
+  geom_boxplot() + 
+  geom_hline(data = true_beta_data, aes(yintercept = value)) +
+  ggtitle('beta') +
+  theme_bw()
+```
+
 ## Notes and References
 
-### forums
+### From the Stan User's Guide
+
+[23.2 Map Function](https://mc-stan.org/docs/2_19/stan-users-guide/map-function.html)
+
+[23.3 Example: Mapping Logistic Regression](https://mc-stan.org/docs/2_19/stan-users-guide/example-mapping-logistic-regression.html)
+
+[23.4 Example: Hierarchical Logistic Regression](https://mc-stan.org/docs/2_19/stan-users-guide/example-hierarchical-logistic-regression.html)
+
+### Forums
 
 ["Multilevel Ordered Logistic regression in Stan"](https://stats.stackexchange.com/questions/225963/multilevel-ordered-logistic-regression-in-stan)  
 

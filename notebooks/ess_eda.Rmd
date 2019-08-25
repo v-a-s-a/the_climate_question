@@ -1,22 +1,26 @@
 ---
-title: "European Social Survey: Exploratory data analysis"
-output: html_notebook
+title: 'European Social Survey: Exploratory data analysis'
+output:
+  pdf_document: default
+  html_notebook: default
 ---
 
 ## Data
 
-```{r echo=FALSE}
+```{r message=FALSE, results='hide'}
 library(tidyverse)
 library(essurvey)
 library(labelled)
 library(rstan)
+library(rgdal)
+library(doBy)
 set_email('trubetskoy.vasa@gmail.com')
 ```
 
 Round 8 contains questions refering to climate. We can extract these.
 
-```{r}
-round_8 <- import_rounds(8)
+```{r message=FALSE, results='hide'}
+round_8 <- import_rounds(8, )
 
 base_variables <- c('idno', 'cntry')
 
@@ -46,10 +50,10 @@ Starting point:
 https://gist.github.com/stared/fbca436c885c430a314a
 
 ```{r}
-library(rgdal)
-library(doBy)
+library(maptools)
+gpclibPermit()
 
-eurMap <- readOGR('data/NUTS_RG_01M_2016_3035.shp')
+eurMap <- readOGR('../data/NUTS_RG_01M_2016_3035.shp')
 eurMap <- subset(eurMap, nchar(as.character(NUTS_ID)) == 2)
 
 eurMapDf <- fortify(eurMap, region='NUTS_ID')
@@ -80,7 +84,7 @@ p
 ```
 
 Weirdly the UK is missing on this map.
-
+ostok119
 ## Modeling
 
 ### Questions
